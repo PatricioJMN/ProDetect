@@ -1,3 +1,22 @@
+# Dataset Files
+SpeechAccent.zip
+speechocean762-1.2.0.zip
+dataset
+audios_for_testing
+
+# Old Files
+main.py
+audio_classes.py
+classify_audio.py
+dsl_dic_by_pila.py
+DSL.py
+parser.out
+parsertab.py
+
+# Project Informs
+Programming_Language_Project.zip
+Programming_Language_Project.pdf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
