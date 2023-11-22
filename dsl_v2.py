@@ -1,141 +1,164 @@
 import ply.lex as lex
 import ply.yacc as yacc
+import librosa
 import numpy as np
-from audio_classes import AudioLoader, FeatureExtractor, ModelLoader, AudioEvaluator
+from tensorflow import keras
 
-# Token definitions
-tokens = (
-    'AUDIO',
-    'MODEL',
-    'EVALUATE',
-    'EQUALS',
-    'USING',
-    'PLUS',
+# Define the AudioLoader class
+class AudioLoader:
+    def __init__(self, audio_path):
+        self.audio_path = audio_path
+
+    def load(self):
+        try:
+            audio_data, sample_rate = librosa.load(self.audio_path, sr=None)
+            return audio_data, sample_rate
+        except Exception as e:
+            print("Error loading audio:", str(e))
+            return None, None
+
+# Define the FeatureExtractor class
+class FeatureExtractor:
+    def __init__(self, audio_data, sample_rate):
+        self.audio_data = audio_data
+        self.sample_rate = sample_rate
+
+    def extract_features(self):
+        try:
+            mfcc_features = librosa.feature.mfcc(y=self.audio_data, sr=self.sample_rate, n_mfcc=128)
+            # Reshape features to match the expected input shape (None, 128, 1)
+            mfcc_features = np.expand_dims(mfcc_features, axis=-1)
+            # Pad or truncate features to the expected time steps (128)
+            if mfcc_features.shape[1] < 128:
+                mfcc_features = np.pad(mfcc_features, ((0, 0), (0, 128 - mfcc_features.shape[1]), (0, 0)))
+            else:
+                mfcc_features = mfcc_features[:, :128, :]
+            return mfcc_features
+        except Exception as e:
+            print("Error extracting features:", str(e))
+            return None
+
+# Define the ModelLoader class
+class ModelLoader:
+    def __init__(self, model_filename):
+        self.model_filename = model_filename
+
+    def load_model(self):
+        try:
+            model = keras.models.load_model(self.model_filename)
+            return model
+        except Exception as e:
+            print("Error loading the model:", str(e))
+            return None
+
+# Define the AudioEvaluator class
+class AudioEvaluator:
+    def __init__(self, model, features):
+        self.model = model
+        self.features = features
+
+    def evaluate(self):
+        try:
+            # features = np.array(self.features).reshape(1, -1, 1)
+            prediction = (self.model.predict(self.features) > 0.5).astype(int)
+            return prediction
+        except Exception as e:
+            print("Error evaluating audio:", str(e))
+            return None
+        
+# Define the reserved words and tokens
+reserved = {
+    'AUDIO': 'AUDIO',
+    'MODEL': 'MODEL',
+    'EVALUATE': 'EVALUATE',
+    'USING': 'USING',
+}
+
+tokens = [
     'IDENTIFIER',
+    'EQUALS',
     'STRING',
-)
+] + list(reserved.values())
 
-
-t_AUDIO = r'AUDIO'
-t_MODEL = r'MODEL'
-t_EVALUATE = r'EVALUATE'
+# Define the regular expressions for simple tokens
 t_EQUALS = r'='
-t_USING = r'USING'
-t_STRING = r'"[^"]*"'
+t_STRING = r'\"[^\"]*\"'
 
-# Ignore whitespace
-t_ignore = ' \t\n'
-
-# Define a function to track line numbers
-def t_newline(t):
-    r'\n+'
-    t.lexer.lineno += len(t.value)
-
-# Define a function to track identifiers
+# Define the rule for an identifier
 def t_IDENTIFIER(t):
-    r'\w+'
-    t.type = 'IDENTIFIER'
+    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value, 'IDENTIFIER')
     return t
 
-# Error handling
+# Define the rule to track line numbers
+def t_newline(t):
+    r'\n+'
+    t.lexer.lineno += t.value.count("\n")
+
+# Define the rule to ignore whitespace and tabs
+t_ignore = ' \t'
+
+# Define the rule for error handling
 def t_error(t):
-    print(f"Illegal character '{t.value[0]}'")
+    print(f"Illegal character '{t.value[0]}' at line {t.lineno}")
     t.lexer.skip(1)
-
-# Error handling
-def p_error(p):
-    print("Syntax error in input!", p)
-
-# Define a dictionary to store variables (audio and model objects)
-variables = {}
-
-# Define the parser
-def p_program(p):
-    '''program : program statement
-               | statement
-               | expression
-    '''
-    pass
-
-def p_statement(p):
-    '''
-    statement : audio_assignment
-              | model_assignment
-              | evaluate
-    '''
-    pass
-
-def p_expression_plus(p):
-    '''
-    expression : IDENTIFIER PLUS IDENTIFIER
-    '''
-    if p[1] in variables and p[3] in variables:
-        audio_data1, sample_rate1 = variables[p[1]]
-        audio_data2, sample_rate2 = variables[p[3]]
-
-        if audio_data1 is not None and audio_data2 is not None:
-            result_audio_data = np.concatenate((audio_data1, audio_data2))
-            result_sample_rate = sample_rate1
-            result_identifier = f"{p[1]}_{p[3]}" 
-            variables[result_identifier] = result_audio_data, result_sample_rate
-    else:
-        print("Audio not found in variables.")
-
-def p_audio_assignment(p):
-    '''
-    audio_assignment : AUDIO IDENTIFIER EQUALS STRING
-    '''
-    audio_loader = AudioLoader(p[4][1:-1])  # Remove quotes from the path
-    audio_data, sample_rate = audio_loader.load_audio()
-    if audio_data is not None:
-        variables[p[2]] = audio_data, sample_rate
-
-def p_model_assignment(p):
-    '''
-    model_assignment : MODEL IDENTIFIER EQUALS STRING
-    '''
-    model_loader = ModelLoader(p[4][1:-1])  # Remove quotes from the path
-    model = model_loader.load_model()
-    if model is not None:
-        variables[p[2]] = model
-
-def p_evaluate(p):
-    '''
-    evaluate : EVALUATE IDENTIFIER USING IDENTIFIER
-    '''
-    if p[2] in variables and p[4] in variables:
-        audio_data, sample_rate = variables[p[2]]
-        model = variables[p[4]]
-        if audio_data is not None and model is not None:
-            feature_extractor = FeatureExtractor(audio_data, sample_rate)
-            features = feature_extractor.extract_features()
-            audio_evaluator = AudioEvaluator(model, features)
-            prediction = audio_evaluator.evaluate()
-            print("Prediction:", prediction)
-    else:
-        print("Audio or model not found in variables.")
-
-
 
 # Build the lexer
 lexer = lex.lex()
-# Build the parser
-parser = yacc.yacc()
 
-# Sample DSL code
-dsl_code = """
+# Sample DSL statements
+dsl_statements = '''
 AUDIO a1 = "audios_for_testing/test_mis.WAV"
-AUDIO a2 = "audios_for_testing/test_2.WAV"
 MODEL m1 = "model/prodetect_cnn.keras"
 EVALUATE a1 USING m1
-"""
+'''
 
-# Tokenize the DSL code
-lexer.input(dsl_code)
+# Dictionary to store variables
+variables = {}
 
-# Display the tokens
-for token in lexer:
-    print(token)
+# Build the parser
+def p_start(t):
+    '''start : statement
+             | start statement'''
+    pass
 
-# Parse the DSL code
-parser.parse(dsl_code)
+def p_statement_assign(t):
+    '''statement : AUDIO IDENTIFIER EQUALS STRING
+                 | MODEL IDENTIFIER EQUALS STRING'''
+    variable_name = t[2]
+    if t[1] == 'AUDIO':
+        audio_loader = AudioLoader(t[4][1:-1])  # Extract the path from the quotes
+        audio_data, sample_rate = audio_loader.load()
+        audio_feature = FeatureExtractor(audio_data, sample_rate)
+        features = audio_feature.extract_features()
+        variables[variable_name] = {'audio_data': audio_data, 'sample_rate': sample_rate, 'features': features}
+    elif t[1] == 'MODEL':
+        model_loader = ModelLoader(t[4][1:-1])  # Extract the path from the quotes
+        variables[variable_name] = {'model': model_loader.load_model()}
+
+def p_statement_evaluate(t):
+    '''statement : EVALUATE IDENTIFIER USING IDENTIFIER'''
+    audio_var = variables.get(t[2])
+    model_var = variables.get(t[4])
+    if audio_var is not None and model_var is not None:
+        audio_evaluator = AudioEvaluator(model_var['model'], audio_var['features'])
+        prediction = audio_evaluator.evaluate()
+        if prediction is not None:
+            count_0 = 0
+            count_1 = 0
+            for i in prediction:
+                if i[0] == 0:
+                    count_0 += 1
+                elif i[0] == 1:
+                    count_1 += 1
+            # print(prediction)
+            if count_0 > count_1:
+                print("Mal pronunciado")
+            else:
+                print("Bien pronunciado")
+
+# Build the parser
+parser = yacc.yacc(start='start')
+
+# Parse DSL statements
+parser.parse(dsl_statements)

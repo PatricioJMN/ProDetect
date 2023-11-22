@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'AUDIO EQUALS EVALUATE IDENTIFIER MODEL PLUS STRING USINGprogram : program statement\n               | statement\n               | expression\n    \n    statement : audio_assignment\n              | model_assignment\n              | evaluate\n    \n    expression : IDENTIFIER PLUS IDENTIFIER\n    \n    audio_assignment : AUDIO IDENTIFIER EQUALS STRING\n    \n    model_assignment : MODEL IDENTIFIER EQUALS STRING\n    \n    evaluate : EVALUATE IDENTIFIER USING IDENTIFIER\n    '
+_lr_signature = 'startAUDIO EQUALS EVALUATE IDENTIFIER MODEL STRING USINGstart : statement\n             | start statementstatement : AUDIO IDENTIFIER EQUALS STRING\n                 | MODEL IDENTIFIER EQUALS STRINGstatement : EVALUATE IDENTIFIER USING IDENTIFIER'
     
-_lr_action_items = {'IDENTIFIER':([0,8,9,10,12,19,],[7,13,14,15,16,22,]),'AUDIO':([0,1,2,3,4,5,6,11,16,20,21,22,],[8,8,-2,-3,-4,-5,-6,-1,-7,-8,-9,-10,]),'MODEL':([0,1,2,3,4,5,6,11,16,20,21,22,],[9,9,-2,-3,-4,-5,-6,-1,-7,-8,-9,-10,]),'EVALUATE':([0,1,2,3,4,5,6,11,16,20,21,22,],[10,10,-2,-3,-4,-5,-6,-1,-7,-8,-9,-10,]),'$end':([1,2,3,4,5,6,11,16,20,21,22,],[0,-2,-3,-4,-5,-6,-1,-7,-8,-9,-10,]),'PLUS':([7,],[12,]),'EQUALS':([13,14,],[17,18,]),'USING':([15,],[19,]),'STRING':([17,18,],[20,21,]),}
+_lr_action_items = {'AUDIO':([0,1,2,6,13,14,15,],[3,3,-1,-2,-3,-4,-5,]),'MODEL':([0,1,2,6,13,14,15,],[4,4,-1,-2,-3,-4,-5,]),'EVALUATE':([0,1,2,6,13,14,15,],[5,5,-1,-2,-3,-4,-5,]),'$end':([1,2,6,13,14,15,],[0,-1,-2,-3,-4,-5,]),'IDENTIFIER':([3,4,5,12,],[7,8,9,15,]),'EQUALS':([7,8,],[10,11,]),'USING':([9,],[12,]),'STRING':([10,11,],[13,14,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'program':([0,],[1,]),'statement':([0,1,],[2,11,]),'expression':([0,],[3,]),'audio_assignment':([0,1,],[4,4,]),'model_assignment':([0,1,],[5,5,]),'evaluate':([0,1,],[6,6,]),}
+_lr_goto_items = {'start':([0,],[1,]),'statement':([0,1,],[2,6,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -26,15 +26,10 @@ for _k, _v in _lr_goto_items.items():
        _lr_goto[_x][_k] = _y
 del _lr_goto_items
 _lr_productions = [
-  ("S' -> program","S'",1,None,None,None),
-  ('program -> program statement','program',2,'p_program','dsl_v2',54),
-  ('program -> statement','program',1,'p_program','dsl_v2',55),
-  ('program -> expression','program',1,'p_program','dsl_v2',56),
-  ('statement -> audio_assignment','statement',1,'p_statement','dsl_v2',62),
-  ('statement -> model_assignment','statement',1,'p_statement','dsl_v2',63),
-  ('statement -> evaluate','statement',1,'p_statement','dsl_v2',64),
-  ('expression -> IDENTIFIER PLUS IDENTIFIER','expression',3,'p_expression_plus','dsl_v2',70),
-  ('audio_assignment -> AUDIO IDENTIFIER EQUALS STRING','audio_assignment',4,'p_audio_assignment','dsl_v2',91),
-  ('model_assignment -> MODEL IDENTIFIER EQUALS STRING','model_assignment',4,'p_model_assignment','dsl_v2',100),
-  ('evaluate -> EVALUATE IDENTIFIER USING IDENTIFIER','evaluate',4,'p_evaluate','dsl_v2',109),
+  ("S' -> start","S'",1,None,None,None),
+  ('start -> statement','start',1,'p_start','dsl_v2.py',114),
+  ('start -> start statement','start',2,'p_start','dsl_v2.py',115),
+  ('statement -> AUDIO IDENTIFIER EQUALS STRING','statement',4,'p_statement_assign','dsl_v2.py',119),
+  ('statement -> MODEL IDENTIFIER EQUALS STRING','statement',4,'p_statement_assign','dsl_v2.py',120),
+  ('statement -> EVALUATE IDENTIFIER USING IDENTIFIER','statement',4,'p_statement_evaluate','dsl_v2.py',131),
 ]
