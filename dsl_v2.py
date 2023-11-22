@@ -25,19 +25,12 @@ class FeatureExtractor:
 
     def extract_features(self):
         try:
-            mfcc_features = librosa.feature.mfcc(y=self.audio_data, sr=self.sample_rate, n_mfcc=128)
-            # Reshape features to match the expected input shape (None, 128, 1)
-            mfcc_features = np.expand_dims(mfcc_features, axis=-1)
-            # Pad or truncate features to the expected time steps (128)
-            if mfcc_features.shape[1] < 128:
-                mfcc_features = np.pad(mfcc_features, ((0, 0), (0, 128 - mfcc_features.shape[1]), (0, 0)))
-            else:
-                mfcc_features = mfcc_features[:, :128, :]
+            mfcc_features = np.mean(librosa.feature.mfcc(y=self.audio_data, sr=self.sample_rate, n_mfcc=2600).T, axis=0)
             return mfcc_features
         except Exception as e:
             print("Error extracting features:", str(e))
             return None
-
+        
 # Define the ModelLoader class
 class ModelLoader:
     def __init__(self, model_filename):
@@ -59,8 +52,8 @@ class AudioEvaluator:
 
     def evaluate(self):
         try:
-            # features = np.array(self.features).reshape(1, -1, 1)
-            prediction = (self.model.predict(self.features) > 0.5).astype(int)
+            features = np.array(self.features).reshape(1, -1, 1)
+            prediction = (self.model.predict(features) > 0.5).astype(int)
             return prediction
         except Exception as e:
             print("Error evaluating audio:", str(e))
@@ -109,8 +102,10 @@ lexer = lex.lex()
 # Sample DSL statements
 dsl_statements = '''
 AUDIO a1 = "audios_for_testing/test_mis.WAV"
+AUDIO a2 = "audios_for_testing/test_2.WAV"
 MODEL m1 = "model/prodetect_cnn.keras"
 EVALUATE a1 USING m1
+EVALUATE a2 USING m1
 '''
 
 # Dictionary to store variables
@@ -153,9 +148,9 @@ def p_statement_evaluate(t):
                     count_1 += 1
             # print(prediction)
             if count_0 > count_1:
-                print("Mal pronunciado")
-            else:
                 print("Bien pronunciado")
+            else:
+                print("Mal pronunciado")
 
 # Build the parser
 parser = yacc.yacc(start='start')
