@@ -18,6 +18,21 @@ class AudioLoader:
             return None, None
 
 # Define the FeatureExtractor class
+# MFCC
+# class FeatureExtractor:
+#     def __init__(self, audio_data, sample_rate):
+#         self.audio_data = audio_data
+#         self.sample_rate = sample_rate
+
+#     def extract_features(self):
+#         try:
+#             mfcc_features = np.mean(librosa.feature.mfcc(y=self.audio_data, sr=self.sample_rate, n_mfcc=2600).T, axis=0)
+#             return mfcc_features
+#         except Exception as e:
+#             print("Error extracting features:", str(e))
+#             return None
+
+# Spectrogram
 class FeatureExtractor:
     def __init__(self, audio_data, sample_rate):
         self.audio_data = audio_data
@@ -25,8 +40,9 @@ class FeatureExtractor:
 
     def extract_features(self):
         try:
-            mfcc_features = np.mean(librosa.feature.mfcc(y=self.audio_data, sr=self.sample_rate, n_mfcc=2600).T, axis=0)
-            return mfcc_features
+            mel_spectrogram = librosa.feature.melspectrogram(y=self.audio_data, sr=self.sample_rate, n_mels=128)
+            log_mel_spectrogram = librosa.power_to_db(mel_spectrogram, ref=np.max)
+            return np.mean(log_mel_spectrogram.T, axis=0)
         except Exception as e:
             print("Error extracting features:", str(e))
             return None
@@ -96,21 +112,6 @@ def t_error(t):
     print(f"Illegal character '{t.value[0]}' at line {t.lineno}")
     t.lexer.skip(1)
 
-# Build the lexer
-lexer = lex.lex()
-
-# Sample DSL statements
-dsl_statements = '''
-AUDIO a1 = "audios_for_testing/test_mis.WAV"
-AUDIO a2 = "audios_for_testing/test_2.WAV"
-MODEL m1 = "model/prodetect_cnn.keras"
-EVALUATE a1 USING m1
-EVALUATE a2 USING m1
-'''
-
-# Dictionary to store variables
-variables = {}
-
 # Build the parser
 def p_start(t):
     '''start : statement
@@ -146,11 +147,29 @@ def p_statement_evaluate(t):
                     count_0 += 1
                 elif i[0] == 1:
                     count_1 += 1
-            # print(prediction)
+            # print("Bien Pronunciado: ", count_0)
+            # print("Mal Pronunciado: ", count_1)
             if count_0 > count_1:
                 print("Bien pronunciado")
             else:
                 print("Mal pronunciado")
+
+# Build the lexer
+lexer = lex.lex()
+
+# Sample DSL statements
+dsl_statements = '''
+AUDIO a1 = "audios_for_testing/test_mis.WAV"
+AUDIO a2 = "audios_for_testing/test_well.WAV"
+MODEL m1 = "model/prodetect_cnn_MFCC.keras"
+MODEL m2 = "model/prodetect_cnn_melspectrogram.keras"
+EVALUATE a1 USING m2
+EVALUATE a2 USING m2
+'''
+
+
+# Dictionary to store variables
+variables = {}
 
 # Build the parser
 parser = yacc.yacc(start='start')

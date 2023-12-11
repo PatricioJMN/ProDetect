@@ -2,9 +2,11 @@ import os
 import json
 import librosa
 import numpy as np
-from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, classification_report
-from tensorflow import keras
+from sklearn.model_selection import train_test_split, learning_curve
+from tensorflow.keras import models, layers
+from tensorflow.keras.layers import LeakyReLU
 
 class DataLoader:
     def __init__(self, audio_path, scores_path, wav_scp_path):
@@ -46,12 +48,24 @@ class DataLoader:
             audio_path = os.path.join(self.audio_path, audio_path)
             if audio_path:
                 audio_data, sample_rate = self.load_audio_data(audio_path)
+
+                #  MFCC
                 if audio_data is not None:
                     mfcc_features = np.mean(librosa.feature.mfcc(y=audio_data, sr=sample_rate, n_mfcc=2600).T, axis=0)
                     threshold = 6
                     label = 1 if total <= threshold else 0
                     X.append(mfcc_features)
                     y.append(label)
+                
+                # Spectrogram
+                # if audio_data is not None:
+                #     mel_spectrogram = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate, n_mels=128)
+                #     log_mel_spectrogram = librosa.power_to_db(mel_spectrogram, ref=np.max)
+                #     features = np.mean(log_mel_spectrogram.T, axis=0)
+                #     threshold = 6
+                #     label = 1 if total <= threshold else 0
+                #     X.append(features)
+                #     y.append(label)
 
         X = np.array(X)
         y = np.array(y)
@@ -60,13 +74,37 @@ class DataLoader:
 
 class CNNModel:
     def __init__(self, input_shape, output_units=1):
-        self.model = keras.Sequential([
-            keras.layers.Conv1D(filters=32, kernel_size=3, activation='relu', input_shape=input_shape),
-            keras.layers.MaxPooling1D(pool_size=2),
-            keras.layers.Flatten(),
-            keras.layers.Dense(64, activation='relu'),
-            keras.layers.Dense(output_units, activation='sigmoid')
-        ])
+        self.model = models.Sequential()
+        
+        # Add Convolutional layer with Leaky ReLU activation
+        self.model.add(layers.Conv1D(filters=32, kernel_size=3, input_shape=input_shape))
+        self.model.add(layers.LeakyReLU(alpha=0.1))
+        
+        # Add more Convolutional layers with increasing filters
+        self.model.add(layers.Conv1D(filters=64, kernel_size=3))
+        self.model.add(layers.LeakyReLU(alpha=0.1))
+        
+        self.model.add(layers.Conv1D(filters=128, kernel_size=3))
+        self.model.add(layers.LeakyReLU(alpha=0.1))
+        
+        # Add MaxPooling layer
+        self.model.add(layers.MaxPooling1D(pool_size=2))
+        
+        # Add Dropout layer for regularization
+        self.model.add(layers.Dropout(0.25))
+        
+        # Flatten the output
+        self.model.add(layers.Flatten())
+        
+        # Add Dense layer with Leaky ReLU activation
+        self.model.add(layers.Dense(256))
+        self.model.add(layers.LeakyReLU(alpha=0.1))
+        
+        # Add Dropout layer for regularization
+        self.model.add(layers.Dropout(0.5))
+        
+        # Output layer
+        self.model.add(layers.Dense(output_units, activation='sigmoid'))
 
     def compile_model(self):
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -84,9 +122,50 @@ class CNNModel:
         self.model.save(model_filename)
 
 class LearningCurvePlotter:
-    def plot_learning_curve(self, estimator, title, X, y, ylim=None, cv=None, n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
-        # The same plot_learning_curve function
-        return()
+    def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
+        """
+        Generate a simple plot of the learning curve.
+
+        Parameters:
+        - estimator: Your classifier.
+        - title: Title for the chart.
+        - X: Feature matrix.
+        - y: Target vector.
+        - ylim: Tuple (min, max) to define the y-axis limits.
+        - cv: Cross-validation splitting strategy.
+        - n_jobs: Number of CPU cores to use for parallel computation.
+        - train_sizes: Array of training set sizes.
+        """
+        plt.figure()
+        plt.title(title)
+        if ylim is not None:
+            plt.ylim(*ylim)
+        plt.xlabel("Training examples")
+        plt.ylabel("Score")
+        
+        train_sizes, train_scores, test_scores = learning_curve(
+            estimator, X, y, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes
+        )
+        
+        train_scores_mean = np.mean(train_scores, axis=1)
+        train_scores_std = np.std(train_scores, axis=1)
+        test_scores_mean = np.mean(test_scores, axis=1)
+        test_scores_std = np.std(test_scores, axis=1)
+        
+        plt.grid()
+
+        plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                        train_scores_mean + train_scores_std, alpha=0.1,
+                        color="r")
+        plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                        test_scores_mean + test_scores_std, alpha=0.1, color="g")
+        plt.plot(train_sizes, train_scores_mean, 'o-', color="r",
+                label="Training score")
+        plt.plot(train_sizes, test_scores_mean, 'o-', color="g",
+                label="Cross-validation score")
+
+        plt.legend(loc="best")
+        return plt
 
 def main():
     print("Preparing dataset...")
@@ -113,11 +192,11 @@ def main():
     print(report)
 
     print("Exporting model...")
-    model.save_model('model/prodetect_cnn.keras')
+    model.save_model('model/prodetect_cnn_MFCC.keras')
 
     # Plot training history (optional).
-    plotter = LearningCurvePlotter()
-    plotter.plot_learning_curve(model, "Learning Curve", X, y)
+    # plotter = LearningCurvePlotter()
+    # plotter.plot_learning_curve(model, "Learning Curve", X, y)
 
 if __name__ == "__main__":
     main()
